@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Nebula — Personal Cloud Gallery</title>
+<meta name="description" content="A futuristic personal cloud gallery. Upload, store and view your photos forever — right in your browser." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- Tokens ---------- */
+:root{
+  --bg-0:#06030f;
+  --bg-1:#0c0720;
+  --bg-2:#160c34;
+  --surface: rgba(255,255,255,0.06);
+  --surface-strong: rgba(255,255,255,0.10);
+  --border: rgba(255,255,255,0.10);
+  --border-strong: rgba(168,85,247,0.45);
+  --text:#f4f1ff;
+  --text-dim:#b9b3d4;
+  --muted:#7e7aa1;
+  --primary:#a855f7;
+  --primary-2:#7c3aed;
+  --neon:#c084fc;
+  --pink:#ec4899;
+  --cyan:#22d3ee;
+  --danger:#ef4444;
+  --radius: 18px;
+  --radius-lg: 28px;
+  --shadow-glow: 0 0 0 1px rgba(168,85,247,.35), 0 10px 40px -10px rgba(168,85,247,.55);
+  --shadow-card: 0 20px 50px -20px rgba(0,0,0,.7);
+  --blur: blur(18px);
+  --grad-primary: linear-gradient(135deg,#a855f7 0%,#ec4899 50%,#7c3aed 100%);
+  --grad-bg: radial-gradient(1200px 800px at 10% -10%, rgba(168,85,247,.35), transparent 60%),
+             radial-gradient(900px 700px at 110% 10%, rgba(236,72,153,.25), transparent 60%),
+             radial-gradient(1000px 800px at 50% 120%, rgba(34,211,238,.18), transparent 60%);
+}
+html[data-theme="light"]{
+  --bg-0:#f6f4ff;
+  --bg-1:#ece7ff;
+  --bg-2:#e1d8ff;
+  --surface: rgba(255,255,255,0.7);
+  --surface-strong: rgba(255,255,255,0.85);
+  --border: rgba(20,10,50,0.10);
+  --border-strong: rgba(124,58,237,0.5);
+  --text:#1a1230;
+  --text-dim:#4b3f73;
+  --muted:#7a6fa3;
+  --shadow-card: 0 20px 50px -25px rgba(76,29,149,.35);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:'Poppins', system-ui, sans-serif;
+  color:var(--text);
+  background:var(--bg-0);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- Animated background ---------- */
+.bg-aurora{
+  position:fixed; inset:-20%; z-index:-2;
+  background:var(--grad-bg);
+  filter:blur(40px) saturate(140%);
+  animation: drift 22s ease-in-out infinite alternate;
+}
+.bg-grid{
+  position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(168,85,247,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(168,85,247,.06) 1px,transparent 1px);
+  background-size:60px 60px;
+  mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
+}
+@keyframes drift{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  100%{transform:translate3d(-4%,3%,0) scale(1.08)}
+}
+
+/* ---------- Loader ---------- */
+#loader{
+  position:fixed; inset:0; z-index:9999;
+  background:radial-gradient(circle at 50% 50%, #150a35 0%, #06030f 70%);
+  display:grid; place-items:center;
+  transition: opacity .6s ease, visibility .6s ease;
+}
+#loader.hidden{opacity:0; visibility:hidden}
+.loader-orb{
+  width:90px;height:90px;border-radius:50%;
+  background:conic-gradient(from 0deg,#a855f7,#ec4899,#22d3ee,#a855f7);
+  filter:blur(2px);
+  animation: spin 1.4s linear infinite;
+  box-shadow:0 0 60px rgba(168,85,247,.7);
+}
+.loader-text{position:absolute;color:#d8cfff;letter-spacing:.4em;font-weight:600;margin-top:160px;font-size:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- Navbar ---------- */
+.nav{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 28px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  background: color-mix(in oklab, var(--bg-0) 65%, transparent);
+  border-bottom:1px solid var(--border);
+}
+.brand{display:flex; align-items:center; gap:12px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; letter-spacing:.02em}
+.brand-mark{
+  width:38px;height:38px;border-radius:12px;
+  background:var(--grad-primary);
+  display:grid; place-items:center;
+  box-shadow:0 0 24px rgba(168,85,247,.6);
+  position:relative; overflow:hidden;
+}
+.brand-mark::after{
+  content:""; position:absolute; inset:2px; border-radius:10px;
+  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.5), transparent 50%);
+}
+.brand-mark svg{position:relative;z-index:1}
+.nav-actions{display:flex; gap:10px; align-items:center}
+
+/* ---------- Buttons ---------- */
+.btn{
+  appearance:none; border:1px solid var(--border); background:var(--surface);
+  color:var(--text); padding:10px 16px; border-radius:12px; cursor:pointer;
+  font-family:inherit; font-weight:500; font-size:14px;
+  display:inline-flex; align-items:center; gap:8px;
+  transition: all .25s ease;
+  backdrop-filter:var(--blur);
+}
+.btn:hover{transform:translateY(-1px); border-color:var(--border-strong); box-shadow:0 8px 24px -10px rgba(168,85,247,.5)}
+.btn-primary{
+  background:var(--grad-primary); border:none; color:#fff;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 10px 30px -10px rgba(236,72,153,.55);
+}
+.btn-primary:hover{filter:brightness(1.08); box-shadow:0 0 0 1px rgba(255,255,255,.15), 0 16px 40px -10px rgba(236,72,153,.7)}
+.btn-ghost{background:transparent}
+.btn-icon{width:40px;height:40px;padding:0;justify-content:center}
+.btn-danger{color:#ffd0d0; border-color:rgba(239,68,68,.4); background:rgba(239,68,68,.08)}
+.btn-danger:hover{background:rgba(239,68,68,.18)}
+
+/* ---------- Layout ---------- */
+.container{max-width:1400px; margin:0 auto; padding:0 24px}
+
+/* ---------- Hero ---------- */
+.hero{padding:70px 0 30px; text-align:center; position:relative}
+.hero h1{
+  font-family:'Space Grotesk',sans-serif;
+  font-size: clamp(36px, 6vw, 72px);
+  margin:0 0 18px; font-weight:700; letter-spacing:-.03em; line-height:1.05;
+}
+.hero h1 .grad{
+  background:var(--grad-primary); -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter: drop-shadow(0 0 24px rgba(168,85,247,.4));
+}
+.hero p{color:var(--text-dim); max-width:640px; margin:0 auto; font-size:17px; line-height:1.6}
+.hero-badges{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:24px}
+.badge{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 14px; border-radius:999px; font-size:12px;
+  background:var(--surface); border:1px solid var(--border); color:var(--text-dim);
+  backdrop-filter:var(--blur);
+}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:var(--neon); box-shadow:0 0 12px var(--neon)}
+
+/* ---------- Glass card base ---------- */
+.glass{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+  box-shadow:var(--shadow-card);
+}
+
+/* ---------- Upload zone ---------- */
+.upload-section{margin:36px 0}
+.dropzone{
+  position:relative; padding:42px 28px; text-align:center; cursor:pointer;
+  border:2px dashed rgba(168,85,247,.35);
+  transition: all .3s ease;
+  overflow:hidden;
+}
+.dropzone:hover, .dropzone.drag{
+  border-color:var(--neon);
+  background: color-mix(in oklab, var(--primary) 12%, var(--surface));
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-glow);
+}
+.dropzone .upload-icon{
+  width:72px;height:72px;border-radius:20px;margin:0 auto 16px;
+  background:var(--grad-primary);
+  display:grid;place-items:center;
+  box-shadow:0 10px 40px -10px rgba(168,85,247,.7);
+  animation: float 4s ease-in-out infinite;
+}
+@keyframes float{0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)}}
+.dropzone h3{margin:0 0 6px; font-size:22px}
+.dropzone p{margin:0; color:var(--text-dim); font-size:14px}
+.dropzone .or{margin:16px 0 12px; color:var(--muted); font-size:12px; letter-spacing:.2em}
+
+/* progress */
+.progress-list{margin-top:20px; display:flex; flex-direction:column; gap:10px}
+.progress-item{
+  display:flex; align-items:center; gap:12px;
+  background:var(--surface); border:1px solid var(--border);
+  padding:10px 14px; border-radius:14px;
+}
+.progress-item .pname{flex:1; font-size:13px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.progress-bar{flex: 0 0 140px; height:6px; background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden}
+.progress-bar > div{height:100%; width:0%; background:var(--grad-primary); transition:width .2s ease; box-shadow:0 0 12px rgba(168,85,247,.6)}
+.progress-item.done .progress-bar > div{background:linear-gradient(90deg,#22d3ee,#a855f7)}
+
+/* ---------- Stats ---------- */
+.stats{display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; margin:18px 0 8px}
+.stat{padding:18px 20px; display:flex; align-items:center; gap:14px}
+.stat .icon{
+  width:46px;height:46px;border-radius:14px; display:grid;place-items:center;
+  background:linear-gradient(135deg, rgba(168,85,247,.25), rgba(236,72,153,.18));
+  border:1px solid var(--border-strong);
+  color:var(--neon);
+}
+.stat .label{font-size:12px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase}
+.stat .value{font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; line-height:1}
+.storage-bar{margin-top:14px; height:8px; background:rgba(255,255,255,.07); border-radius:99px; overflow:hidden; border:1px solid var(--border)}
+.storage-bar > div{height:100%; width:0%; background:var(--grad-primary); transition:width .6s ease}
+.storage-meta{display:flex; justify-content:space-between; margin-top:8px; font-size:12px; color:var(--text-dim)}
+
+/* ---------- Filters / toolbar ---------- */
+.toolbar{
+  display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+  margin:28px 0 18px; padding:14px;
+}
+.search{
+  position:relative; flex:1; min-width:240px;
+}
+.search input{
+  width:100%; padding:12px 16px 12px 42px;
+  background:var(--surface-strong); border:1px solid var(--border); color:var(--text);
+  border-radius:12px; font-family:inherit; font-size:14px; outline:none;
+  transition: all .2s ease;
+}
+.search input:focus{border-color:var(--border-strong); box-shadow:0 0 0 4px rgba(168,85,247,.15)}
+.search svg{position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted)}
+select{
+  background:var(--surface-strong); border:1px solid var(--border); color:var(--text);
+  padding:12px 14px; border-radius:12px; font-family:inherit; font-size:14px; outline:none; cursor:pointer;
+}
+.chip-group{display:flex; gap:6px; padding:4px; background:var(--surface-strong); border:1px solid var(--border); border-radius:14px}
+.chip{
+  padding:8px 14px; border-radius:10px; cursor:pointer; font-size:13px; color:var(--text-dim);
+  transition:all .2s ease;
+}
+.chip.active{background:var(--grad-primary); color:#fff; box-shadow:0 6px 20px -8px rgba(236,72,153,.6)}
+
+/* ---------- Gallery ---------- */
+.gallery{
+  display:grid; gap:14px;
+  grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
+  padding-bottom:80px;
+}
+.card{
+  position:relative; border-radius:var(--radius); overflow:hidden;
+  background:var(--surface); border:1px solid var(--border);
+  cursor:pointer; aspect-ratio: 1/1;
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s ease, border-color .25s ease;
+  opacity:0; transform: translateY(14px) scale(.98);
+  animation: revealIn .5s ease forwards;
+}
+@keyframes revealIn{to{opacity:1; transform:none}}
+.card:hover{transform:translateY(-4px) scale(1.01); border-color:var(--border-strong); box-shadow:0 24px 60px -20px rgba(168,85,247,.55)}
+.card img{width:100%; height:100%; object-fit:cover; display:block; transition:transform .8s ease}
+.card:hover img{transform:scale(1.06)}
+.card .overlay{
+  position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(180deg, transparent 50%, rgba(6,3,15,.92));
+  opacity:0; transition:opacity .3s;
+}
+.card:hover .overlay{opacity:1}
+.card .meta{
+  position:absolute; left:12px; right:12px; bottom:10px;
+  display:flex; justify-content:space-between; align-items:end; gap:8px;
+  opacity:0; transform:translateY(8px); transition:all .3s;
+  pointer-events:none;
+}
+.card:hover .meta{opacity:1; transform:none}
+.card .meta .fname{font-size:12px; color:#fff; max-width:70%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.card .meta .date{font-size:11px; color:#d8cfff}
+.card .heart{
+  position:absolute; top:10px; right:10px;
+  width:34px;height:34px; border-radius:10px;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(8px);
+  display:grid; place-items:center; cursor:pointer; border:1px solid rgba(255,255,255,.12);
+  transition:all .2s ease;
+  pointer-events:auto;
+  color:#fff;
+}
+.card .heart:hover{background:rgba(0,0,0,.7); transform:scale(1.08)}
+.card .heart.active{color:var(--pink); border-color:rgba(236,72,153,.6); box-shadow:0 0 16px rgba(236,72,153,.5)}
+.card .heart.active svg{fill:var(--pink)}
+.card.dragging{opacity:.4}
+.card.drag-over{outline:2px solid var(--neon); outline-offset:-2px}
+
+/* ---------- Empty state ---------- */
+.empty{
+  text-align:center; padding:80px 20px; color:var(--text-dim);
+}
+.empty svg{margin-bottom:18px; opacity:.7}
+.empty h3{margin:0 0 6px; color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:24px}
+.empty p{margin:0; font-size:14px}
+
+/* ---------- Floating upload button ---------- */
+.fab{
+  position:fixed; right:24px; bottom:24px; z-index:40;
+  width:62px;height:62px;border-radius:20px;
+  background:var(--grad-primary); border:none; color:#fff; cursor:pointer;
+  display:grid;place-items:center;
+  box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 20px 50px -10px rgba(168,85,247,.7);
+  transition:transform .25s ease, box-shadow .25s ease;
+  animation: fabPulse 2.6s ease-in-out infinite;
+}
+.fab:hover{transform:translateY(-3px) rotate(8deg)}
+@keyframes fabPulse{
+  0%,100%{box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 20px 50px -10px rgba(168,85,247,.7), 0 0 0 0 rgba(168,85,247,.6)}
+  50%{box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 20px 50px -10px rgba(168,85,247,.7), 0 0 0 14px rgba(168,85,247,0)}
+}
+
+/* ---------- Modal ---------- */
+.modal{
+  position:fixed; inset:0; z-index:80;
+  background:rgba(2,1,8,.85); backdrop-filter: blur(14px);
+  display:none; align-items:center; justify-content:center;
+  padding:24px;
+}
+.modal.open{display:flex; animation: fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0} to{opacity:1}}
+.modal-inner{
+  position:relative; max-width:min(1100px, 96vw); max-height:90vh; width:100%;
+  display:flex; flex-direction:column; gap:14px;
+  animation: popIn .35s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes popIn{from{opacity:0; transform:scale(.95)} to{opacity:1; transform:none}}
+.modal-img-wrap{
+  flex:1; display:grid; place-items:center; min-height:0;
+  border-radius:var(--radius-lg); overflow:hidden;
+  background: rgba(0,0,0,.4); border:1px solid var(--border);
+}
+.modal-img-wrap img{max-width:100%; max-height:78vh; object-fit:contain; display:block}
+.modal-bar{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  padding:14px; border-radius:var(--radius);
+}
+.modal-info{flex:1; min-width:200px; display:flex; flex-direction:column; gap:4px}
+.modal-info .t{font-size:14px; font-weight:600; color:#fff; word-break:break-all}
+.modal-info .s{font-size:12px; color:var(--text-dim)}
+.modal-nav{
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:48px;height:48px;border-radius:14px;
+  background:rgba(0,0,0,.5); border:1px solid var(--border); color:#fff;
+  display:grid;place-items:center; cursor:pointer; backdrop-filter:blur(8px);
+  transition:all .2s;
+}
+.modal-nav:hover{background:rgba(168,85,247,.4); border-color:var(--neon)}
+.modal-nav.prev{left:-8px}
+.modal-nav.next{right:-8px}
+.modal-close{position:absolute; top:-46px; right:0}
+
+/* toast */
+.toasts{position:fixed; bottom:24px; left:24px; z-index:200; display:flex; flex-direction:column; gap:8px}
+.toast{
+  background:var(--surface-strong); border:1px solid var(--border-strong);
+  padding:12px 16px; border-radius:12px; color:var(--text); font-size:13px;
+  backdrop-filter:var(--blur); box-shadow:var(--shadow-card);
+  animation: slideUp .3s ease;
+}
+@keyframes slideUp{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+
+/* footer */
+footer{padding:40px 0; text-align:center; color:var(--muted); font-size:13px; border-top:1px solid var(--border); margin-top:40px}
+footer .brand{justify-content:center; margin-bottom:8px}
+
+/* scroll reveal */
+.reveal{opacity:0; transform:translateY(20px); transition: opacity .8s ease, transform .8s ease}
+.reveal.in{opacity:1; transform:none}
+
+/* responsive */
+@media (max-width: 860px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .hero{padding:40px 0 10px}
+  .nav{padding:12px 16px}
+  .container{padding:0 16px}
+  .gallery{grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap:10px}
+  .modal-nav.prev{left:6px}
+  .modal-nav.next{right:6px}
+}
+
+/* slideshow */
+.slideshow .modal-bar, .slideshow .modal-close{display:none}
+.slideshow .modal-img-wrap img{max-height:92vh}
+
+/* skeleton blur-up */
+.card .skeleton{
+  position:absolute; inset:0;
+  background:linear-gradient(110deg, rgba(255,255,255,.05) 25%, rgba(255,255,255,.12) 45%, rgba(255,255,255,.05) 65%);
+  background-size:200% 100%; animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer{to{background-position:-200% 0}}
+
+kbd{font-family:'Space Grotesk',monospace; background:rgba(255,255,255,.08); border:1px solid var(--border); padding:1px 6px; border-radius:6px; font-size:11px}
+
+</style>
+</head>
+<body>
+
+<!-- Backgrounds -->
+<div class="bg-aurora"></div>
+<div class="bg-grid"></div>
+
+<!-- Loader -->
+<div id="loader">
+  <div class="loader-orb"></div>
+  <div class="loader-text">NEBULA · CLOUD GALLERY</div>
+</div>
+
+<!-- Navbar -->
+<nav class="nav">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17.5 19a4.5 4.5 0 0 0 0-9c-.3-3-2.7-5-5.5-5a5.7 5.7 0 0 0-5.6 4.5A4 4 0 0 0 6 19h11.5z"/>
+      </svg>
+    </div>
+    <span>Nebula</span>
+  </div>
+  <div class="nav-actions">
+    <button class="btn btn-icon btn-ghost" id="slideshowBtn" title="Slideshow (S)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    </button>
+    <button class="btn btn-icon btn-ghost" id="themeBtn" title="Toggle theme (T)">
+      <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="btn btn-primary" id="navUploadBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload
+    </button>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header class="container hero">
+  <div class="hero-badges reveal">
+    <span class="badge"><span class="dot"></span> Stored locally · Forever</span>
+    <span class="badge">IndexedDB · No server needed</span>
+  </div>
+  <h1 class="reveal">Your photos. <span class="grad">Beyond the cloud.</span></h1>
+  <p class="reveal">Drag, drop, and keep your memories safe in a private, futuristic gallery — even if you delete them from your phone.</p>
+</header>
+
+<main class="container">
+
+  <!-- Upload -->
+  <section class="upload-section reveal">
+    <div class="dropzone glass" id="dropzone">
+      <div class="upload-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <h3>Drop photos here to teleport them in</h3>
+      <p>or tap to browse · JPG, PNG, WEBP, GIF · multiple files supported</p>
+      <div class="or">— OR —</div>
+      <button class="btn btn-primary" id="browseBtn" type="button">Choose photos</button>
+      <input type="file" id="fileInput" accept="image/*" multiple hidden />
+      <div class="progress-list" id="progressList"></div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="reveal">
+    <div class="stats">
+      <div class="stat glass">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+        <div><div class="label">Photos</div><div class="value" id="statCount">0</div></div>
+      </div>
+      <div class="stat glass">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+        <div><div class="label">Favorites</div><div class="value" id="statFav">0</div></div>
+      </div>
+      <div class="stat glass">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+        <div><div class="label">Storage Used</div><div class="value" id="statSize">0 MB</div></div>
+      </div>
+      <div class="stat glass">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
+        <div style="flex:1"><div class="label">Quota</div><div class="value" id="statQuota">— / —</div></div>
+      </div>
+    </div>
+    <div class="glass" style="padding:14px 18px; margin-top:10px">
+      <div class="storage-bar"><div id="storageBarFill"></div></div>
+      <div class="storage-meta"><span id="storageUsedTxt">0 MB used</span><span id="storageQuotaTxt">of available browser storage</span></div>
+    </div>
+  </section>
+
+  <!-- Toolbar -->
+  <section class="toolbar glass reveal">
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="searchInput" placeholder="Search by filename…" />
+    </div>
+    <select id="sortSelect">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="name">Name (A → Z)</option>
+      <option value="size">Largest first</option>
+    </select>
+    <div class="chip-group" id="filterChips">
+      <div class="chip active" data-filter="all">All</div>
+      <div class="chip" data-filter="favorites">Favorites</div>
+    </div>
+  </section>
+
+  <!-- Gallery -->
+  <section>
+    <div class="gallery" id="gallery"></div>
+    <div class="empty glass" id="emptyState" style="display:none">
+      <svg width="120" height="120" viewBox="0 0 200 200" fill="none">
+        <defs>
+          <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#a855f7"/>
+            <stop offset="1" stop-color="#ec4899"/>
+          </linearGradient>
+        </defs>
+        <rect x="20" y="40" width="160" height="120" rx="20" stroke="url(#g1)" stroke-width="3" fill="rgba(168,85,247,.06)"/>
+        <circle cx="70" cy="80" r="10" fill="url(#g1)"/>
+        <path d="M30 150 L80 100 L120 130 L160 90 L180 110 L180 160 L20 160 Z" fill="rgba(168,85,247,.18)" stroke="url(#g1)" stroke-width="3"/>
+      </svg>
+      <h3>Your gallery is a blank canvas</h3>
+      <p>Upload your first photo to see the magic ✨</p>
+    </div>
+    <div id="sentinel" style="height:40px"></div>
+  </section>
+
+</main>
+
+<!-- Floating button -->
+<button class="fab" id="fab" title="Upload (U)">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- Modal -->
+<div class="modal" id="modal">
+  <div class="modal-inner">
+    <button class="btn btn-icon modal-close" id="closeBtn" title="Close (Esc)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <button class="modal-nav prev" id="prevBtn" title="Previous (←)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="modal-img-wrap"><img id="modalImg" alt=""/></div>
+    <button class="modal-nav next" id="nextBtn" title="Next (→)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <div class="modal-bar glass">
+      <div class="modal-info">
+        <div class="t" id="mInfoName">—</div>
+        <div class="s" id="mInfoMeta">—</div>
+      </div>
+      <button class="btn" id="mFav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> Favorite</button>
+      <button class="btn" id="mCopy"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy URL</button>
+      <button class="btn" id="mShare"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share</button>
+      <button class="btn" id="mDownload"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+      <button class="btn btn-danger" id="mDelete"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg> Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toasts" id="toasts"></div>
+
+<footer>
+  <div class="brand">
+    <div class="brand-mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9c-.3-3-2.7-5-5.5-5a5.7 5.7 0 0 0-5.6 4.5A4 4 0 0 0 6 19h11.5z"/></svg></div>
+      <span>Nebula</span>
+  </div>
+  <div>Built with ♥ · IndexedDB keeps your photos safe forever · Shortcuts: <kbd>U</kbd> upload · <kbd>S</kbd> slideshow · <kbd>T</kbd> theme · <kbd>F</kbd> favorite · <kbd>←</kbd> <kbd>→</kbd> navigate</div>
+</footer>
+
+<script>
+/* ============== IndexedDB Layer ============== */
+const DB_NAME = 'nebula-gallery';
+const DB_VERSION = 1;
+const STORE = 'photos';
+let db;
+
+function openDB(){
+  return new Promise((res, rej)=>{
+    const r = indexedDB.open(DB_NAME, DB_VERSION);
+    r.onupgradeneeded = (e)=>{
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains(STORE)){
+        const s = d.createObjectStore(STORE, {keyPath:'id'});
+        s.createIndex('createdAt','createdAt');
+      }
+    };
+    r.onsuccess = ()=>{db = r.result; res(db)};
+    r.onerror = ()=>rej(r.error);
+  });
+}
+function tx(mode='readonly'){return db.transaction(STORE, mode).objectStore(STORE)}
+function dbAdd(o){return new Promise((res,rej)=>{const r=tx('readwrite').put(o); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error)})}
+function dbAll(){return new Promise((res,rej)=>{const r=tx().getAll(); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error)})}
+function dbGet(id){return new Promise((res,rej)=>{const r=tx().get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error)})}
+function dbDel(id){return new Promise((res,rej)=>{const r=tx('readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error)})}
+function dbPut(o){return dbAdd(o)}
+
+/* ============== State ============== */
+let photos = [];      // {id, name, type, size, createdAt, favorite, order, blob}
+let urlCache = new Map(); // id -> objectURL
+let viewState = { search:'', sort:'newest', filter:'all', visible: 0 };
+const PAGE = 24;
+let currentIndex = -1;
+let slideshowTimer = null;
+
+/* ============== Helpers ============== */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const fmtBytes = b => { if(!b) return '0 B'; const k=1024, u=['B','KB','MB','GB']; const i=Math.floor(Math.log(b)/Math.log(k)); return (b/Math.pow(k,i)).toFixed(i?1:0)+' '+u[i] }
+const fmtDate = ts => new Date(ts).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+const uid = () => 'p_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+function urlFor(p){
+  if(urlCache.has(p.id)) return urlCache.get(p.id);
+  const u = URL.createObjectURL(p.blob);
+  urlCache.set(p.id, u);
+  return u;
+}
+function toast(msg){
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300)},2400);
+}
+
+/* ============== Image compression ============== */
+async function compressImage(file, maxDim=2400, quality=.86){
+  if(!file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  try{
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxDim/Math.max(bmp.width, bmp.height));
+    if(scale === 1 && file.size < 1.2*1024*1024) return file;
+    const w = Math.round(bmp.width*scale), h = Math.round(bmp.height*scale);
+    const canvas = document.createElement('canvas'); canvas.width=w; canvas.height=h;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(bmp, 0, 0, w, h);
+    const blob = await new Promise(r=>canvas.toBlob(r, 'image/webp', quality));
+    if(blob && blob.size < file.size) return new File([blob], file.name.replace(/\.\w+$/,'.webp'), {type:'image/webp'});
+    return file;
+  }catch{ return file }
+}
+
+/* ============== Upload pipeline ============== */
+async function handleFiles(files){
+  const list = $('#progressList');
+  for(const file of files){
+    if(!file.type.startsWith('image/')){ toast(`Skipped: ${file.name} (not an image)`); continue }
+
+    const row = document.createElement('div');
+    row.className='progress-item';
+    row.innerHTML = `<div class="pname">${file.name}</div><div class="progress-bar"><div></div></div><div class="pct" style="font-size:11px;color:var(--muted);min-width:34px;text-align:right">0%</div>`;
+    list.prepend(row);
+    const bar = row.querySelector('.progress-bar > div');
+    const pct = row.querySelector('.pct');
+
+    let p = 0;
+    const tick = setInterval(()=>{ p = Math.min(p + Math.random()*16, 88); bar.style.width = p+'%'; pct.textContent = Math.round(p)+'%' }, 90);
+
+    try{
+      const compressed = await compressImage(file);
+      const photo = {
+        id: uid(), name: file.name, type: compressed.type,
+        size: compressed.size, createdAt: Date.now(),
+        favorite: false, order: Date.now(), blob: compressed
+      };
+      await dbPut(photo);
+      photos.unshift(photo);
+
+      clearInterval(tick); bar.style.width='100%'; pct.textContent='100%'; row.classList.add('done');
+      setTimeout(()=>{row.style.opacity='0'; row.style.transition='opacity .4s'; setTimeout(()=>row.remove(),400)}, 800);
+    }catch(err){
+      clearInterval(tick);
+      row.querySelector('.pname').textContent = 'Failed: '+file.name;
+      pct.textContent = 'ERR';
+      console.error(err);
+    }
+  }
+  render();
+  updateStats();
+}
+
+/* ============== Render ============== */
+function getView(){
+  let arr = photos.slice();
+  if(viewState.filter==='favorites') arr = arr.filter(p=>p.favorite);
+  if(viewState.search){
+    const q = viewState.search.toLowerCase();
+    arr = arr.filter(p=>p.name.toLowerCase().includes(q));
+  }
+  switch(viewState.sort){
+    case 'oldest': arr.sort((a,b)=>a.createdAt-b.createdAt); break;
+    case 'name': arr.sort((a,b)=>a.name.localeCompare(b.name)); break;
+    case 'size': arr.sort((a,b)=>b.size-a.size); break;
+    default: arr.sort((a,b)=>(b.order||b.createdAt)-(a.order||a.createdAt));
+  }
+  return arr;
+}
+function render(reset=true){
+  const gallery = $('#gallery');
+  if(reset){ gallery.innerHTML=''; viewState.visible = 0 }
+  const view = getView();
+  $('#emptyState').style.display = view.length===0 ? 'block':'none';
+
+  const slice = view.slice(viewState.visible, viewState.visible + PAGE);
+  slice.forEach((p, i)=>{
+    const idx = view.indexOf(p);
+    const card = document.createElement('div');
+    card.className='card'; card.draggable = true;
+    card.style.animationDelay = (i*30)+'ms';
+    card.dataset.id = p.id;
+    card.innerHTML = `
+      <div class="skeleton"></div>
+      <img loading="lazy" alt="${p.name}" />
+      <div class="overlay"></div>
+      <div class="heart ${p.favorite?'active':''}" title="Favorite (double-click)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </div>
+      <div class="meta"><span class="fname">${p.name}</span><span class="date">${new Date(p.createdAt).toLocaleDateString()}</span></div>
+    `;
+    const img = card.querySelector('img');
+    img.src = urlFor(p);
+    img.onload = ()=> card.querySelector('.skeleton')?.remove();
+
+    card.addEventListener('click', e=>{
+      if(e.target.closest('.heart')) return;
+      openModal(idx);
+    });
+    let lastTap = 0;
+    card.addEventListener('dblclick', ()=> toggleFav(p.id));
+    card.querySelector('.heart').addEventListener('click', e=>{ e.stopPropagation(); toggleFav(p.id) });
+
+    // drag reorder
+    card.addEventListener('dragstart', e=>{ card.classList.add('dragging'); e.dataTransfer.setData('text/plain', p.id) });
+    card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
+    card.addEventListener('dragover', e=>{ e.preventDefault(); card.classList.add('drag-over') });
+    card.addEventListener('dragleave', ()=> card.classList.remove('drag-over'));
+    card.addEventListener('drop', async e=>{
+      e.preventDefault(); card.classList.remove('drag-over');
+      const fromId = e.dataTransfer.getData('text/plain');
+      if(!fromId || fromId===p.id) return;
+      await reorder(fromId, p.id);
+    });
+
+    gallery.appendChild(card);
+  });
+  viewState.visible += slice.length;
+}
+
+async function toggleFav(id){
+  const p = photos.find(x=>x.id===id); if(!p) return;
+  p.favorite = !p.favorite;
+  await dbPut(p);
+  toast(p.favorite ? '♥ Added to favorites' : 'Removed from favorites');
+  render(); updateStats();
+}
+async function reorder(fromId, toId){
+  const a = photos.find(x=>x.id===fromId); const b = photos.find(x=>x.id===toId);
+  if(!a||!b) return;
+  const newOrder = (b.order||b.createdAt) - 1;
+  a.order = newOrder; await dbPut(a);
+  render();
+}
+async function deletePhoto(id){
+  await dbDel(id);
+  const p = photos.find(x=>x.id===id);
+  if(p && urlCache.has(id)){ URL.revokeObjectURL(urlCache.get(id)); urlCache.delete(id) }
+  photos = photos.filter(x=>x.id!==id);
+  render(); updateStats();
+  toast('Photo deleted');
+}
+
+/* ============== Stats ============== */
+async function updateStats(){
+  $('#statCount').textContent = photos.length;
+  $('#statFav').textContent = photos.filter(p=>p.favorite).length;
+  const total = photos.reduce((s,p)=>s+p.size,0);
+  $('#statSize').textContent = fmtBytes(total);
+  $('#storageUsedTxt').textContent = fmtBytes(total)+' used';
+
+  if(navigator.storage && navigator.storage.estimate){
+    const est = await navigator.storage.estimate();
+    const pctUsed = est.quota ? (est.usage/est.quota*100) : 0;
+    $('#storageBarFill').style.width = Math.min(100, pctUsed)+'%';
+    $('#statQuota').textContent = `${fmtBytes(est.usage)} / ${fmtBytes(est.quota)}`;
+    $('#storageQuotaTxt').textContent = `of ${fmtBytes(est.quota)} available`;
+  }
+}
+
+/* ============== Modal ============== */
+function openModal(i){
+  const view = getView();
+  if(i<0 || i>=view.length) return;
+  currentIndex = i;
+  const p = view[i];
+  $('#modalImg').src = urlFor(p);
+  $('#modalImg').alt = p.name;
+  $('#mInfoName').textContent = p.name;
+  $('#mInfoMeta').textContent = `${fmtBytes(p.size)} · ${fmtDate(p.createdAt)} · ${p.type}`;
+  $('#mFav').classList.toggle('btn-primary', p.favorite);
+  $('#modal').classList.add('open');
+}
+function closeModal(){
+  $('#modal').classList.remove('open');
+  $('#modal').classList.remove('slideshow');
+  if(slideshowTimer){ clearInterval(slideshowTimer); slideshowTimer=null }
+  currentIndex = -1;
+}
+function nav(dir){
+  const view = getView(); if(view.length===0) return;
+  currentIndex = (currentIndex + dir + view.length) % view.length;
+  openModal(currentIndex);
+}
+
+/* ============== Init / Wire-up ============== */
+async function init(){
+  await openDB();
+  photos = await dbAll();
+  await updateStats();
+  render();
+
+  // hide loader
+  setTimeout(()=>$('#loader').classList.add('hidden'), 500);
+
+  // reveal animations
+  const io = new IntersectionObserver(es=> es.forEach(e=> e.isIntersecting && e.target.classList.add('in')), {threshold:.12});
+  $$('.reveal').forEach(el=>io.observe(el));
+
+  // infinite scroll
+  const sentinel = $('#sentinel');
+  const ioMore = new IntersectionObserver(es=>{
+    if(es[0].isIntersecting){
+      const view = getView();
+      if(viewState.visible < view.length) render(false);
+    }
+  });
+  ioMore.observe(sentinel);
+
+  // file input + dropzone
+  const fileInput = $('#fileInput');
+  $('#browseBtn').addEventListener('click', ()=> fileInput.click());
+  $('#navUploadBtn').addEventListener('click', ()=> fileInput.click());
+  $('#fab').addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', e=> handleFiles(e.target.files));
+
+  const dz = $('#dropzone');
+  dz.addEventListener('click', e=>{ if(e.target===dz || e.target.closest('.upload-icon, h3, p, .or')) fileInput.click() });
+  ;['dragenter','dragover'].forEach(ev=> dz.addEventListener(ev, e=>{e.preventDefault(); dz.classList.add('drag')}));
+  ;['dragleave','drop'].forEach(ev=> dz.addEventListener(ev, e=>{e.preventDefault(); dz.classList.remove('drag')}));
+  dz.addEventListener('drop', e=> handleFiles(e.dataTransfer.files));
+
+  // global drag
+  window.addEventListener('dragover', e=> e.preventDefault());
+  window.addEventListener('drop', e=>{
+    if(e.dataTransfer && e.dataTransfer.files.length){ e.preventDefault(); handleFiles(e.dataTransfer.files) }
+  });
+
+  // toolbar
+  $('#searchInput').addEventListener('input', e=>{ viewState.search = e.target.value; render() });
+  $('#sortSelect').addEventListener('change', e=>{ viewState.sort = e.target.value; render() });
+  $$('#filterChips .chip').forEach(c=> c.addEventListener('click', ()=>{
+    $$('#filterChips .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    viewState.filter = c.dataset.filter; render();
+  }));
+
+  // theme
+  const savedTheme = localStorage.getItem('nebula-theme') || 'dark';
+  document.documentElement.dataset.theme = savedTheme;
+  $('#themeBtn').addEventListener('click', ()=>{
+    const cur = document.documentElement.dataset.theme;
+    const next = cur==='dark' ? 'light':'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('nebula-theme', next);
+  });
+
+  // modal
+  $('#closeBtn').addEventListener('click', closeModal);
+  $('#modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal() });
+  $('#prevBtn').addEventListener('click', ()=> nav(-1));
+  $('#nextBtn').addEventListener('click', ()=> nav(1));
+  $('#mFav').addEventListener('click', async ()=>{
+    const p = getView()[currentIndex]; if(!p) return;
+    await toggleFav(p.id); openModal(currentIndex);
+  });
+  $('#mDownload').addEventListener('click', ()=>{
+    const p = getView()[currentIndex]; if(!p) return;
+    const a = document.createElement('a'); a.href = urlFor(p); a.download = p.name; a.click();
+  });
+  $('#mDelete').addEventListener('click', async ()=>{
+    const p = getView()[currentIndex]; if(!p) return;
+    if(!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    await deletePhoto(p.id); closeModal();
+  });
+  $('#mCopy').addEventListener('click', async ()=>{
+    const p = getView()[currentIndex]; if(!p) return;
+    try{ await navigator.clipboard.writeText(urlFor(p)); toast('Image URL copied') }
+    catch{ toast('Could not copy') }
+  });
+  $('#mShare').addEventListener('click', async ()=>{
+    const p = getView()[currentIndex]; if(!p) return;
+    if(navigator.share){
+      try{
+        const file = new File([p.blob], p.name, {type:p.type});
+        await navigator.share({files:[file], title:p.name, text:'Shared from Nebula'});
+      }catch{}
+    } else {
+      try{ await navigator.clipboard.writeText(urlFor(p)); toast('Share unavailable — URL copied instead') }catch{}
+    }
+  });
+
+  // slideshow
+  $('#slideshowBtn').addEventListener('click', startSlideshow);
+
+  // shortcuts
+  document.addEventListener('keydown', e=>{
+    if(e.target.matches('input, textarea, select')) return;
+    if($('#modal').classList.contains('open')){
+      if(e.key==='Escape') closeModal();
+      else if(e.key==='ArrowLeft') nav(-1);
+      else if(e.key==='ArrowRight') nav(1);
+      else if(e.key==='f' || e.key==='F') $('#mFav').click();
+      else if(e.key==='Delete') $('#mDelete').click();
+    } else {
+      if(e.key==='u' || e.key==='U') fileInput.click();
+      else if(e.key==='t' || e.key==='T') $('#themeBtn').click();
+      else if(e.key==='s' || e.key==='S') startSlideshow();
+      else if(e.key==='/') { e.preventDefault(); $('#searchInput').focus() }
+    }
+  });
+}
+
+function startSlideshow(){
+  const view = getView();
+  if(view.length===0){ toast('Upload some photos first ✨'); return }
+  openModal(0);
+  $('#modal').classList.add('slideshow');
+  if(slideshowTimer) clearInterval(slideshowTimer);
+  slideshowTimer = setInterval(()=> nav(1), 3000);
+}
+
+init().catch(err=>{
+  console.error(err);
+  $('#loader').innerHTML = '<div style="color:#fff;text-align:center;font-family:Poppins"><h3>Could not start gallery</h3><p style="color:#b9b3d4">'+err.message+'</p></div>';
+});
+</script>
+</body>
+</html>
